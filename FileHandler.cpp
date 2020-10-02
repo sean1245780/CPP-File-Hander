@@ -71,6 +71,15 @@ string FileHandler::getFileName(const string& path) noexcept
 }
 
 /*
+	The function constructs a FileHandler object by trying to open a file.
+*/
+FileHandler::FileHandler(const string& path, const openFileModes& file_mode, const bufferType& buff_type, size_t buff_size)
+	: file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER), file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true)
+{
+	if (!(this->openFile(path, file_mode, buffer_type, buff_size))) { throw FileHandlerException("Error - FileHandler: File couldn't be opened!"); }
+}
+
+/*
 	The function gets file's extension out of the path.
 	@ It is a static function.
 */
@@ -118,14 +127,40 @@ FileHandler& FileHandler::operator<<(const char* str)
 
 		unsigned int length = strlen(str);
 
+		if (length <= 0) { return *this; }
+
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
 			this->file_access == openFileModes::read_p || this->file_access == openFileModes::write_b ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_b ||
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[length + 1]();
+				unsigned int nsize = 0;
 
-			if (fwrite(str, sizeof(char), length, this->file) == length) return *this;
+				for (unsigned int i = 0; i < length + 1; i++)
+				{
+					const char ch = str[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[nsize] = ch;
+						nsize++;
+					}
+				}
+
+				bool val = fwrite(ndata, sizeof(char), nsize, this->file) == nsize;
+
+				delete ndata;
+				ndata = nullptr;
+
+				if (val) return *this;
+			}
+			else
+			{
+				if (fwrite(str, sizeof(char), length, this->file) == length) return *this;
+			}
 
 			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
@@ -154,8 +189,32 @@ FileHandler& FileHandler::operator<<(const string& str)
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_b ||
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[str.size() + 1]();
+				unsigned int nsize = 0;
 
-			if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
+				for (unsigned int i = 0; i < str.size() + 1; i++)
+				{
+					const char ch = str[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[nsize] = ch;
+						nsize++;
+					}
+				}
+
+				bool val = fwrite(ndata, sizeof(char), nsize, this->file) == nsize;
+
+				delete ndata;
+				ndata = nullptr;
+
+				if (val) return *this;
+			}
+			else
+			{
+				if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
+			}
 
 			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
@@ -185,7 +244,32 @@ FileHandler& FileHandler::operator<<(string&& str)
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
 
-			if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[str.size() + 1]();
+				unsigned int nsize = 0;
+
+				for (unsigned int i = 0; i < str.size() + 1; i++)
+				{
+					const char ch = str[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[nsize] = ch;
+						nsize++;
+					}
+				}
+
+				bool val = fwrite(ndata, sizeof(char), nsize, this->file) == nsize;
+
+				delete ndata;
+				ndata = nullptr;
+
+				if (val) return *this;
+			}
+			else
+			{
+				if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
+			}
 
 			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
@@ -234,6 +318,24 @@ FileHandler& FileHandler::operator>>(char* str)
 				}
 			}
 			
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[ccount]();
+
+				for (unsigned int i = 0, j = 0; i < ccount; i++)
+				{
+					const char ch = data[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[j] = ch;
+						j++;
+					}
+				}
+
+				delete data;
+				data = ndata;
+			}
+
 			str = data;
 
 			return *this;
@@ -281,6 +383,24 @@ FileHandler& FileHandler::operator>>(string& str)
 					delete data;
 					data = ndata;
 				}
+			}
+
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[ccount]();
+
+				for (unsigned int i = 0, j = 0; i < ccount; i++)
+				{
+					const char ch = data[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[j] = ch;
+						j++;
+					}
+				}
+
+				delete data;
+				data = ndata;
 			}
 
 			str = data;
@@ -410,7 +530,34 @@ bool FileHandler::writeToFile(const string& data, const int& pos, const bool& au
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
 
-			bool val = fwrite(data.c_str(), sizeof(char), data.size(), this->file) == data.size();
+			bool val = true;
+			if (!this->clearCharsCanUse) 
+			{
+				unsigned int nsize = data.size();
+				char* ndata = new char[data.size()]();
+				
+				for (unsigned int i = 0, j = 0; i < data.size(); i++)
+				{
+					const char ch = data[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[j] = ch;
+						j++;
+					}
+					else
+					{
+						nsize--;
+					}
+				}
+
+				val = fwrite(ndata, sizeof(char), nsize, this->file) == nsize;
+				delete ndata;
+				ndata = nullptr;
+			}
+			else
+			{
+				val = fwrite(data.c_str(), sizeof(char), data.size(), this->file) == data.size();
+			}
 
 			rewind_check();
 
@@ -454,8 +601,26 @@ retObj<string> FileHandler::readFromFile(const size_t& count, const int& pos, co
 			this->file_access == openFileModes::read_b || this->file_access == openFileModes::read_bp ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_bp)
 		{
-			char* temp_str = new char[(int)count + 1]();
+			char* temp_str = new char[(unsigned int)count + 1]();
 			bool read_work = fread(temp_str, sizeof(char), count, this->file) == (count);
+
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[(unsigned int)count + 1]();
+
+				for (unsigned int i = 0, j = 0; i < (unsigned int)count + 1; i++)
+				{
+					const char ch = temp_str[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[j] = ch;
+						j++;
+					}
+				}
+
+				delete temp_str;
+				temp_str = ndata;
+			}
 
 			string str = temp_str;
 			delete temp_str;
@@ -547,6 +712,24 @@ retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsign
 
 			if ((tmp == EOF || tmp == '\0') && numline > 0)  return { "", 0, false };
 
+			if (!this->clearCharsCanUse)
+			{
+				char* ndata = new char[ccount]();
+
+				for (unsigned int i = 0, j = 0; i < ccount; i++)
+				{
+					const char ch = data[i];
+					if (this->charsCanUse[(int)ch])
+					{
+						ndata[j] = ch;
+						j++;
+					}
+				}
+
+				delete data;
+				data = ndata;
+			}
+
 			string str = data;
 			delete data;
 			data = nullptr;
@@ -563,7 +746,7 @@ retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsign
 /*
 	The function is closing a file and the buffer if opened.
 */
-bool FileHandler::closeFile() noexcept { if (this->file_buffer != NULL) { delete[] this->file_buffer; this->file_buffer = NULL; this->file_buffer_size = 0; } if (this->file != NULL) { fclose(this->file); this->file = NULL; return true; } return false; }
+bool FileHandler::closeFile() noexcept { if (this->file_buffer != NULL) { delete[] this->file_buffer; this->file_buffer = NULL; this->file_buffer_size = 0; } file_path = "";  file_name = ""; extension = ""; if (this->file != NULL) { fclose(this->file); this->file = NULL; return true; } return false; }
 
 /*
 	The function deletes the function from the computer.
@@ -698,6 +881,57 @@ bool FileHandler::moveCursorInFile(const filePosSet& pos_set, int offset) noexce
 	}
 
 	return !fseek(this->file, (long)offset, curser_pos);
+}
+
+/*
+	Sets the file's ignoring data.
+	--> The ignoring is set both to reading and writing options!
+*/
+bool FileHandler::setIgnoring(const ignore_data& ignoring) noexcept
+{
+	if (this->file == NULL) { return false; }
+
+	if (!ignoring.ignore_signle_chars.empty()) { this->clearCharsCanUse = false; }
+
+	for (int i = 0; i < ignoring.ignore_signle_chars.size(); i++)
+	{
+		this->charsCanUse[ignoring.ignore_signle_chars[i]] = false;
+	}
+
+	for (int i = 0; i < ignoring.ignore_range_chars.size(); i++)
+	{
+		const pair<char, char>& range_data = ignoring.ignore_range_chars[i];
+
+		if (range_data.first <= range_data.second)
+		{
+			this->clearCharsCanUse = false;
+
+			for (int j = range_data.first; j <= range_data.second; j++)
+			{
+				this->charsCanUse[j] = false;
+			}
+		}
+	}
+
+	return true;
+}
+
+/*
+	Clears the file's ignoring data.
+	--> The ignoring is cleared both to reading and writing options!
+*/
+bool FileHandler::clearIngoring() noexcept
+{
+	if (this->file == NULL) { return false; }
+
+	for (int i = 0; i < MAX_CHAR_CAPACITY; i++)
+	{
+		this->charsCanUse[i] = true;
+	}
+
+	this->clearCharsCanUse = true;
+
+	return true;
 }
 
 //pair<bool, char> FileHandler::operator[](const int index)

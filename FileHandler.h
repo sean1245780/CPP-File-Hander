@@ -5,12 +5,13 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <vector>
 #include <exception>
 
 using std::string;
 using std::ostream;
 using std::pair;
-using std::pair;
+using std::vector;
 
 #define DEFUALT_MODE				"rb"
 #define DEFUALT_MODE_ENUM			openFileModes::read_b
@@ -27,6 +28,7 @@ using std::pair;
 #define READ_OP						'r'
 #define NON_WORK					-1
 #define DFLT_BUFF_GLINE_SIZE		16
+#define MAX_CHAR_CAPACITY			256
 
 #define OS_KW_CONST
 #if defined(__unix__) || defined(__unix) || defined(__linux__)
@@ -142,6 +144,13 @@ typedef struct file_data // Data for thr file
 	friend ostream& operator<<(ostream& os, const file_data& data);
 } file_data;
 
+typedef struct ignore_data
+{
+	vector<char> ignore_signle_chars; // For ignoring only single chars
+	vector<pair<char, char>> ignore_range_chars; // For ignoring a range of chars between the two, including both.
+
+} ignore_data;
+
 class FileHandler
 {
 private:
@@ -151,6 +160,8 @@ private:
 	FILE * file;
 	char * file_buffer;
 	unsigned int file_buffer_size;
+	bool charsCanUse[MAX_CHAR_CAPACITY] = { true };
+	bool clearCharsCanUse;
 
 	bufferType buffer_type;
 	openFileModes file_access;
@@ -161,7 +172,9 @@ private:
 
 public:
 	FileHandler() noexcept : file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER),
-												file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET){}
+												file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true) {}
+	FileHandler(const string& path, const openFileModes& file_mode = DEFUALT_MODE_ENUM, const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE);
+
 	~FileHandler() { if(file != NULL) { fclose(file); file = NULL; } if(file_buffer != NULL) { delete[] file_buffer; file_buffer = NULL; this->file_buffer_size = 0; } }
 
 	FileHandler(const FileHandler& other) = delete;
@@ -185,6 +198,8 @@ public:
 	bool flushFile() noexcept; // Safe flush
 	bool changeFileBuffer(const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE) noexcept;
 	bool moveCursorInFile(const filePosSet& pos_set, int offset = 0) noexcept;
+	bool setIgnoring(const ignore_data& ignoring) noexcept;
+	bool clearIngoring() noexcept;
 
 	file_data getFileState() noexcept;
 	long getFilesLength() noexcept;
