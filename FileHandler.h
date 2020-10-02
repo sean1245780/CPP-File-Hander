@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include <exception>
 
 using std::string;
@@ -168,11 +169,11 @@ public:
 	FileHandler& operator=(const FileHandler& other) = delete;
 	FileHandler& operator=(FileHandler&& other) = delete;
 
-	FileHandler& operator<< (const char * str, const int& pos = NON_WORK, const bool& auto_rewind = false, const bool& flush_file = false);
-	FileHandler& operator<< (const string& str, const int& pos = NON_WORK, const bool& auto_rewind = false, const bool& flush_file = false);
-	FileHandler& operator<< (string&& str, const int& pos = NON_WORK, const bool& auto_rewind = false, const bool& flush_file = false);
-	FileHandler& operator>> (char* str, const unsigned int& numline = 0, const int& pos = NON_WORK, unsigned int buff_size = DFLT_BUFF_GLINE_SIZE, const bool& auto_rewind = true, const bool& flush_file = false);
-	FileHandler& operator>> (string& str, const unsigned int& numline = 0, const int& pos = NON_WORK, unsigned int buff_size = DFLT_BUFF_GLINE_SIZE, const bool& auto_rewind = true, const bool& flush_file = false);
+	FileHandler& operator<< (const char * str);
+	FileHandler& operator<< (const string& str);
+	FileHandler& operator<< (string&& str);
+	FileHandler& operator>> (char* str);
+	FileHandler& operator>> (string& str);
 
 	bool openFile(const string& f_name, const openFileModes& file_mode = DEFUALT_MODE_ENUM,
 		const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE) noexcept;
@@ -216,21 +217,16 @@ public:
 class FileHandlerException : public std::exception
 {
 protected:
-	string data;
+	string obj;
 
 public:
-	FileHandlerException(const string& str) : data(str) {}
-	FileHandlerException(const char* str) : data(str) {}
+	FileHandlerException(const string& str) : obj(str) {}
+	FileHandlerException(const char* str) : obj(str) {}
 	virtual ~FileHandlerException() = default;
 
-	virtual char const* what() const
+	virtual char const* what() const noexcept
 	{
-		return data.c_str();
-	}
-
-	virtual string what() const
-	{
-		return data;
+		return obj.c_str();
 	}
 };
 

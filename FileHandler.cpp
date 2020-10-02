@@ -108,28 +108,15 @@ long FileHandler::getFilesLength() noexcept
 	The function enables the option to write data into the file.
 	--> The function is throwable!
 */
-FileHandler& FileHandler::operator<<(const char* str, const int& pos, const bool& auto_rewind, const bool& flush_file)
+FileHandler& FileHandler::operator<<(const char* str)
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = WRITE_OP;
 
-		if (data.size() <= 0) { return true; }
+		if (str == nullptr) { return *this; }
 
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
+		unsigned int length = strlen(str);
 
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
@@ -138,14 +125,10 @@ FileHandler& FileHandler::operator<<(const char* str, const int& pos, const bool
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
 
-			bool val = fwrite(str, sizeof(char), data.size(), this->file) == data.size();
+			if (fwrite(str, sizeof(char), length, this->file) == length) return *this;
 
-			rewind_check();
-
-			return (val) ? (*this) : throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
+			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
-
-		rewind_check();
 
 		throw FileHandlerException("Error - FileHandler: The file access type doesn't allow to write into the file!");
 	}
@@ -157,28 +140,13 @@ FileHandler& FileHandler::operator<<(const char* str, const int& pos, const bool
 	The function enables the option to write data into the file.
 	--> The function is throwable!
 */
-FileHandler& FileHandler::operator<<(const string& str, const int& pos, const bool& auto_rewind, const bool& flush_file)
+FileHandler& FileHandler::operator<<(const string& str)
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = WRITE_OP;
 
-		if (data.size() <= 0) { return true; }
-
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
+		if (str.empty()) { return *this; }
 
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
@@ -187,48 +155,28 @@ FileHandler& FileHandler::operator<<(const string& str, const int& pos, const bo
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
 
-			bool val = fwrite(str.c_str(), sizeof(char), data.size(), this->file) == data.size();
+			if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
 
-			rewind_check();
-
-			return (val) ? (*this) : throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
+			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
-
-		rewind_check();
 
 		throw FileHandlerException("Error - FileHandler: The file access type doesn't allow to write into the file!");
 	}
 
 	throw FileHandlerException("Error - FileHandler: The file isn't opened!");
-
 }
 
 /*
 	The function enables the option to write data into the file.
 	--> The function is throwable!
 */
-FileHandler& FileHandler::operator<<(string&& str, const int& pos, const bool& auto_rewind, const bool& flush_file)
+FileHandler& FileHandler::operator<<(string&& str)
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = WRITE_OP;
 
-		if (data.size() <= 0) { return true; }
-
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
+		if (str.empty()) { return *this; }
 
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
@@ -237,14 +185,10 @@ FileHandler& FileHandler::operator<<(string&& str, const int& pos, const bool& a
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
 
-			bool val = fwrite(str.c_str(), sizeof(char), data.size(), this->file) == data.size();
+			if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
 
-			rewind_check();
-
-			return (val) ? (*this) : throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
+			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
-
-		rewind_check();
 
 		throw FileHandlerException("Error - FileHandler: The file access type doesn't allow to write into the file!");
 	}
@@ -256,30 +200,13 @@ FileHandler& FileHandler::operator<<(string&& str, const int& pos, const bool& a
 	The function enables the option to read data from the file.
 	--> The function is throwable!
 */
-FileHandler& FileHandler::operator>>(char* str, const unsigned int& numline, const int& pos, unsigned int buff_size, const bool& auto_rewind, const bool& flush_file)
+FileHandler& FileHandler::operator>>(char* str)
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = READ_OP;
 
 		if (feof(this->file)) { throw FileHandlerException("Error - FileHandler: Failed to read from file -> End of file was reached!"); }
-
-		if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
-
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
 
 		if (this->file_access == openFileModes::read || this->file_access == openFileModes::read_p ||
 			this->file_access == openFileModes::write_p || this->file_access == openFileModes::append_p ||
@@ -288,36 +215,29 @@ FileHandler& FileHandler::operator>>(char* str, const unsigned int& numline, con
 		{
 
 			char tmp = 0;
-			char* data = new char[buff_size + 1]();
+			char* data = new char[DFLT_BUFF_GLINE_SIZE + 1]();
 			unsigned int ccount = 0, buffcount = 1;
 
 			while (!feof(this->file))
 			{
 				tmp = fgetc(this->file);
 				ccount++;
-				if (tmp == EOF || tmp == '\0' || (numline <= 0 && tmp == '\n')) break;
-				numline--;
+				if (tmp == EOF || tmp == '\0' || tmp == '\n') break;
 				if (tmp == '\r') continue;
-				if (numline <= 0) data[ccount - 1] = tmp;
-				if (ccount > buff_size * buffcount)
+				data[ccount - 1] = tmp;
+				if (ccount > DFLT_BUFF_GLINE_SIZE * buffcount)
 				{
-					char* ndata = new char[buff_size * (++buffcount) + 1]();
-					memcpy(ndata, data, buff_size * (buffcount - 1) + 1);
+					char* ndata = new char[DFLT_BUFF_GLINE_SIZE * (++buffcount) + 1]();
+					memcpy(ndata, data, DFLT_BUFF_GLINE_SIZE * (buffcount - 1) + 1);
 					delete data;
 					data = ndata;
 				}
 			}
-
-			rewind_check();
-
-			if ((tmp == EOF || tmp == '\0') && numline > 0) { throw FileHandlerException("Error - FileHandler: Failed to read from file -> Numline wasn't couldn't be reached!"); }
 			
 			str = data;
 
 			return *this;
 		}
-
-		rewind_check();
 
 		throw FileHandlerException("Error - FileHandler: The file access type doesn't allow to read from the file!");
 	}
@@ -329,30 +249,13 @@ FileHandler& FileHandler::operator>>(char* str, const unsigned int& numline, con
 	The function enables the option to read data from the file.
 	--> The function is throwable!
 */
-FileHandler& FileHandler::operator>>(string& str, const unsigned int& numline, const int& pos, unsigned int buff_size, const bool& auto_rewind, const bool& flush_file)
+FileHandler& FileHandler::operator>>(string& str)
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = READ_OP;
 
 		if (feof(this->file)) { throw FileHandlerException("Error - FileHandler: Failed to read from file -> End of file was reached!"); }
-
-		if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
-
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
 
 		if (this->file_access == openFileModes::read || this->file_access == openFileModes::read_p ||
 			this->file_access == openFileModes::write_p || this->file_access == openFileModes::append_p ||
@@ -361,39 +264,31 @@ FileHandler& FileHandler::operator>>(string& str, const unsigned int& numline, c
 		{
 
 			char tmp = 0;
-			char* data = new char[buff_size + 1]();
+			char* data = new char[DFLT_BUFF_GLINE_SIZE + 1]();
 			unsigned int ccount = 0, buffcount = 1;
 
 			while (!feof(this->file))
 			{
 				tmp = fgetc(this->file);
 				ccount++;
-				if (tmp == EOF || tmp == '\0' || (numline <= 0 && tmp == '\n')) break;
-				numline--;
+				if (tmp == EOF || tmp == '\0' || tmp == '\n') break;
 				if (tmp == '\r') continue;
-				if (numline <= 0) data[ccount - 1] = tmp;
-				if (ccount > buff_size * buffcount)
+				data[ccount - 1] = tmp;
+				if (ccount > DFLT_BUFF_GLINE_SIZE * buffcount)
 				{
-					char* ndata = new char[buff_size * (++buffcount) + 1]();
-					memcpy(ndata, data, buff_size * (buffcount - 1) + 1);
+					char* ndata = new char[DFLT_BUFF_GLINE_SIZE * (++buffcount) + 1]();
+					memcpy(ndata, data, DFLT_BUFF_GLINE_SIZE * (buffcount - 1) + 1);
 					delete data;
 					data = ndata;
 				}
 			}
 
-			rewind_check();
-
-			if ((tmp == EOF || tmp == '\0') && numline > 0) { throw FileHandlerException("Error - FileHandler: Failed to read from file -> Numline wasn't couldn't be reached!"); }
-
-			str.clear();
-			str.append(data);
+			str = data;
 			delete data;
 			data = nullptr;
 
 			return *this;
 		}
-
-		rewind_check();
 
 		throw FileHandlerException("Error - FileHandler: The file access type doesn't allow to read from the file!");
 	}
