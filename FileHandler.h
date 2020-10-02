@@ -144,7 +144,7 @@ typedef struct file_data // Data for thr file
 	friend ostream& operator<<(ostream& os, const file_data& data);
 } file_data;
 
-typedef struct ignore_data
+typedef struct ignore_data // For setting which chars to ignore
 {
 	vector<char> ignore_signle_chars; // For ignoring only single chars
 	vector<pair<char, char>> ignore_range_chars; // For ignoring a range of chars between the two, including both.

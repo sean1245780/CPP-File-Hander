@@ -502,11 +502,11 @@ bool FileHandler::openFile(const string& f_path, const openFileModes& file_mode,
 */
 bool FileHandler::writeToFile(const string& data, const int& pos, const bool& auto_rewind, const bool& flush_file) noexcept
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = WRITE_OP;
+
+		if (flush_file) { this->flushFile(); }
 		
 		if (data.size() <= 0) { return true; }
 		
@@ -575,12 +575,12 @@ bool FileHandler::writeToFile(const string& data, const int& pos, const bool& au
 */
 retObj<string> FileHandler::readFromFile(const size_t& count, const int& pos, const bool& auto_rewind, const bool& flush_file) noexcept
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = READ_OP;
-		
+
+		if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
+
 		if (count <= 0) { return { "", -1, true }; }
 
 		if (pos >= 0)
@@ -658,12 +658,12 @@ retObj<string> FileHandler::readFromFile(const size_t& count, const int& pos, co
 */
 retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsigned int buff_size, const bool& auto_rewind, const bool& flush_file) noexcept
 {
-	if (flush_file) { this->flushFile(); }
-
 	if (this->file != NULL)
 	{
 		this->last_move = READ_OP;
-		
+
+		if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
+
 		if (feof(this->file)) { return { "", -1, true }; }
 
 		if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
