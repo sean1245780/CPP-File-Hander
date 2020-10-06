@@ -71,12 +71,29 @@ string FileHandler::getFileName(const string& path) noexcept
 }
 
 /*
+	The function constructs a FileHandler object.
+*/
+FileHandler::FileHandler() noexcept : file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER),
+	file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true)
+{
+	for (int i = 0; i < MAX_CHAR_CAPACITY; i++)
+	{
+		this->charsCanUse[i] = true;
+	}
+}
+
+/*
 	The function constructs a FileHandler object by trying to open a file.
 */
 FileHandler::FileHandler(const string& path, const openFileModes& file_mode, const bufferType& buff_type, size_t buff_size)
 	: file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER), file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true)
 {
 	if (!(this->openFile(path, file_mode, buffer_type, buff_size))) { throw FileHandlerException("Error - FileHandler: File couldn't be opened!"); }
+
+	for (int i = 0; i < MAX_CHAR_CAPACITY; i++)
+	{
+		this->charsCanUse[i] = true;
+	}
 }
 
 /*
@@ -121,20 +138,20 @@ FileHandler& FileHandler::operator<<(const char* str)
 {
 	if (this->file != NULL)
 	{
-		this->last_move = WRITE_OP;
-
-		if (str == nullptr) { return *this; }
-
-		unsigned int length = strlen(str);
-
-		if (length <= 0) { return *this; }
-
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
 			this->file_access == openFileModes::read_p || this->file_access == openFileModes::write_b ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_b ||
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
+			this->last_move = WRITE_OP;
+
+			if (str == nullptr) { return *this; }
+
+			unsigned int length = strlen(str);
+
+			if (length <= 0) { return *this; }
+
 			if (!this->clearCharsCanUse)
 			{
 				char* ndata = new char[length + 1]();
@@ -157,10 +174,7 @@ FileHandler& FileHandler::operator<<(const char* str)
 
 				if (val) return *this;
 			}
-			else
-			{
-				if (fwrite(str, sizeof(char), length, this->file) == length) return *this;
-			}
+			else if (fwrite(str, sizeof(char), length, this->file) == length) return *this;
 
 			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
@@ -179,16 +193,16 @@ FileHandler& FileHandler::operator<<(const string& str)
 {
 	if (this->file != NULL)
 	{
-		this->last_move = WRITE_OP;
-
-		if (str.empty()) { return *this; }
-
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
 			this->file_access == openFileModes::read_p || this->file_access == openFileModes::write_b ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_b ||
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
+			this->last_move = WRITE_OP;
+
+			if (str.empty()) { return *this; }
+
 			if (!this->clearCharsCanUse)
 			{
 				char* ndata = new char[str.size() + 1]();
@@ -211,10 +225,7 @@ FileHandler& FileHandler::operator<<(const string& str)
 
 				if (val) return *this;
 			}
-			else
-			{
-				if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
-			}
+			else if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
 
 			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
@@ -233,16 +244,15 @@ FileHandler& FileHandler::operator<<(string&& str)
 {
 	if (this->file != NULL)
 	{
-		this->last_move = WRITE_OP;
-
-		if (str.empty()) { return *this; }
-
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
 			this->file_access == openFileModes::read_p || this->file_access == openFileModes::write_b ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_b ||
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
+			this->last_move = WRITE_OP;
+
+			if (str.empty()) { return *this; }
 
 			if (!this->clearCharsCanUse)
 			{
@@ -266,10 +276,7 @@ FileHandler& FileHandler::operator<<(string&& str)
 
 				if (val) return *this;
 			}
-			else
-			{
-				if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
-			}
+			else if (fwrite(str.c_str(), sizeof(char), str.size(), this->file) == str.size()) return *this;
 
 			throw FileHandlerException("Error - FileHandler: Failed to write into the file!");
 		}
@@ -297,7 +304,6 @@ FileHandler& FileHandler::operator>>(char* str)
 			this->file_access == openFileModes::read_b || this->file_access == openFileModes::read_bp ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_bp)
 		{
-
 			char tmp = 0;
 			char* data = new char[DFLT_BUFF_GLINE_SIZE + 1]();
 			unsigned int ccount = 0, buffcount = 1;
@@ -305,10 +311,9 @@ FileHandler& FileHandler::operator>>(char* str)
 			while (!feof(this->file))
 			{
 				tmp = fgetc(this->file);
-				ccount++;
-				if (tmp == EOF || tmp == '\0' || tmp == '\n') break;
+				if (tmp == EOF || tmp == '\0') break;
 				if (tmp == '\r') continue;
-				data[ccount - 1] = tmp;
+				data[ccount++] = tmp;
 				if (ccount > DFLT_BUFF_GLINE_SIZE * buffcount)
 				{
 					char* ndata = new char[DFLT_BUFF_GLINE_SIZE * (++buffcount) + 1]();
@@ -316,11 +321,12 @@ FileHandler& FileHandler::operator>>(char* str)
 					delete data;
 					data = ndata;
 				}
+				if (tmp == '\n') break;
 			}
 			
 			if (!this->clearCharsCanUse)
 			{
-				char* ndata = new char[ccount]();
+				char* ndata = new char[ccount + 1]();
 
 				for (unsigned int i = 0, j = 0; i < ccount; i++)
 				{
@@ -364,7 +370,6 @@ FileHandler& FileHandler::operator>>(string& str)
 			this->file_access == openFileModes::read_b || this->file_access == openFileModes::read_bp ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_bp)
 		{
-
 			char tmp = 0;
 			char* data = new char[DFLT_BUFF_GLINE_SIZE + 1]();
 			unsigned int ccount = 0, buffcount = 1;
@@ -372,10 +377,9 @@ FileHandler& FileHandler::operator>>(string& str)
 			while (!feof(this->file))
 			{
 				tmp = fgetc(this->file);
-				ccount++;
-				if (tmp == EOF || tmp == '\0' || tmp == '\n') break;
+				if (tmp == EOF || tmp == '\0') break;
 				if (tmp == '\r') continue;
-				data[ccount - 1] = tmp;
+				data[ccount++] = tmp;
 				if (ccount > DFLT_BUFF_GLINE_SIZE * buffcount)
 				{
 					char* ndata = new char[DFLT_BUFF_GLINE_SIZE * (++buffcount) + 1]();
@@ -383,16 +387,18 @@ FileHandler& FileHandler::operator>>(string& str)
 					delete data;
 					data = ndata;
 				}
+				if (tmp == '\n') break;
 			}
 
 			if (!this->clearCharsCanUse)
 			{
-				char* ndata = new char[ccount]();
+				char* ndata = new char[ccount + 1]();
 
 				for (unsigned int i = 0, j = 0; i < ccount; i++)
 				{
 					const char ch = data[i];
-					if (this->charsCanUse[(int)ch])
+					
+					if (this->charsCanUse[(unsigned int)ch])
 					{
 						ndata[j] = ch;
 						j++;
@@ -402,8 +408,8 @@ FileHandler& FileHandler::operator>>(string& str)
 				delete data;
 				data = ndata;
 			}
-
-			str = data;
+			
+			str += data;
 			delete data;
 			data = nullptr;
 
@@ -414,6 +420,24 @@ FileHandler& FileHandler::operator>>(string& str)
 	}
 
 	throw FileHandlerException("Error - FileHandler: The file isn't opened!");
+}
+
+/*
+	The function enables to get the wanted index of the ignoring table.
+	--> The functions may throw.
+*/
+bool& FileHandler::operator[](const unsigned int index)
+{
+	if (index >= MAX_CHAR_CAPACITY) { throw FileHandlerException("Error - FileHandler: The wanted ignoring index is out of range!"); }
+	return charsCanUse[index];
+}
+
+/*
+	The function enables to get the file buffer, with on updating options.
+*/
+char const* const* const FileHandler::operator()() const noexcept
+{
+	return &(this->file_buffer);
 }
 
 /*
@@ -504,31 +528,22 @@ bool FileHandler::writeToFile(const string& data, const int& pos, const bool& au
 {
 	if (this->file != NULL)
 	{
-		this->last_move = WRITE_OP;
-
-		if (flush_file) { this->flushFile(); }
-		
-		if (data.size() <= 0) { return true; }
-		
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
-	
 		if (this->file_access == openFileModes::write || this->file_access == openFileModes::write_p ||
 			this->file_access == openFileModes::append || this->file_access == openFileModes::append_p ||
 			this->file_access == openFileModes::read_p || this->file_access == openFileModes::write_b ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_b ||
 			this->file_access == openFileModes::append_bp || this->file_access == openFileModes::read_bp)
 		{
+			this->last_move = WRITE_OP;
+
+			if (flush_file) { this->flushFile(); }
+
+			if (data.size() <= 0) { return true; }
+
+			if (pos >= 0)
+			{
+				this->moveCursorInFile(filePosSet::start_file, pos);
+			}
 
 			bool val = true;
 			if (!this->clearCharsCanUse) 
@@ -559,12 +574,13 @@ bool FileHandler::writeToFile(const string& data, const int& pos, const bool& au
 				val = fwrite(data.c_str(), sizeof(char), data.size(), this->file) == data.size();
 			}
 
-			rewind_check();
+			if (pos >= 0 && auto_rewind)
+			{
+				this->rewindFileOneStep();
+			}
 
 			return val;
 		}
-
-		rewind_check();
 	}
 
 	return false;
@@ -577,30 +593,30 @@ retObj<string> FileHandler::readFromFile(const size_t& count, const int& pos, co
 {
 	if (this->file != NULL)
 	{
-		this->last_move = READ_OP;
-
-		if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
-
-		if (count <= 0) { return { "", -1, true }; }
-
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
-
 		if (this->file_access == openFileModes::read || this->file_access == openFileModes::read_p ||
 			this->file_access == openFileModes::write_p || this->file_access == openFileModes::append_p || 
 			this->file_access == openFileModes::read_b || this->file_access == openFileModes::read_bp ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_bp)
 		{
+			this->last_move = READ_OP;
+
+			if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
+
+			if (count <= 0) { return { "", -1, true }; }
+
+			if (pos >= 0)
+			{
+				this->moveCursorInFile(filePosSet::start_file, pos);
+			}
+
+			auto rewind_check = [&]()
+			{
+				if (pos >= 0 && auto_rewind)
+				{
+					this->rewindFileOneStep();
+				}
+			};
+
 			char* temp_str = new char[(unsigned int)count + 1]();
 			bool read_work = fread(temp_str, sizeof(char), count, this->file) == (count);
 
@@ -626,10 +642,12 @@ retObj<string> FileHandler::readFromFile(const size_t& count, const int& pos, co
 			delete temp_str;
 			temp_str = nullptr;
 
+			char tmpv[2] = { EOF, 0 };
+
 			if (!read_work && feof(this->file))
 			{
 				rewind_check();
-				return { std::to_string(EOF), -1, true };
+				return { string(tmpv), -1, true };
 			}
 			else if (!read_work)
 			{
@@ -639,14 +657,12 @@ retObj<string> FileHandler::readFromFile(const size_t& count, const int& pos, co
 			else if (feof(this->file))
 			{
 				rewind_check();
-				return { str.append(std::to_string(EOF)), -1, true };
+				return { str.append(tmpv), -1, true };
 			}
 
 			rewind_check();
 			return { str, -1, true };
 		}
-
-		rewind_check();
 	}
 
 	return { "", 0, false };
@@ -660,33 +676,28 @@ retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsign
 {
 	if (this->file != NULL)
 	{
-		this->last_move = READ_OP;
-
-		if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
-
-		if (feof(this->file)) { return { "", -1, true }; }
-
-		if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
-		
-		if (pos >= 0)
-		{
-			this->moveCursorInFile(filePosSet::start_file, pos);
-		}
-
-		auto rewind_check = [&]()
-		{
-			if (pos >= 0 && auto_rewind)
-			{
-				this->rewindFileOneStep();
-			}
-		};
-
 		if (this->file_access == openFileModes::read || this->file_access == openFileModes::read_p ||
 			this->file_access == openFileModes::write_p || this->file_access == openFileModes::append_p ||
 			this->file_access == openFileModes::read_b || this->file_access == openFileModes::read_bp ||
 			this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_bp)
 		{
-						
+			this->last_move = READ_OP;
+
+			if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
+
+			if (feof(this->file)) { return { "", -1, true }; }
+
+			if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
+
+			if (pos >= 0)
+			{
+				this->moveCursorInFile(filePosSet::start_file, pos);
+			}
+			else
+			{
+				this->moveCursorInFile(filePosSet::start_file);
+			}
+
 			char tmp = 0;
 			char* data = new char[buff_size + 1]();
 			unsigned int ccount = 0, buffcount = 1;
@@ -694,11 +705,10 @@ retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsign
 			while (!feof(this->file))
 			{
 				tmp = fgetc(this->file);
-				ccount++;
 				if (tmp == EOF || tmp == '\0' || (numline <= 0 && tmp == '\n')) break;
-				numline--;
+				if (tmp == '\n') numline--;
 				if (tmp == '\r') continue;
-				if (numline <= 0) data[ccount - 1] = tmp;
+				if (numline <= 0 && tmp != '\n') data[ccount++] = tmp;
 				if (ccount > buff_size * buffcount)
 				{
 					char* ndata = new char[buff_size * (++buffcount) + 1]();
@@ -707,14 +717,14 @@ retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsign
 					data = ndata;
 				}
 			}
-
-			rewind_check();
+			
+			this->rewindFileOneStep();
 
 			if ((tmp == EOF || tmp == '\0') && numline > 0)  return { "", 0, false };
 
 			if (!this->clearCharsCanUse)
 			{
-				char* ndata = new char[ccount]();
+				char* ndata = new char[ccount + 1]();
 
 				for (unsigned int i = 0, j = 0; i < ccount; i++)
 				{
@@ -736,8 +746,6 @@ retObj<string> FileHandler::getLine(unsigned int numline, const int& pos, unsign
 
 			return { str, -1, true };
 		}
-
-		rewind_check();
 	}
 
 	return { "", 0, false };

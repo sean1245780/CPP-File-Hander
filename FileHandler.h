@@ -160,7 +160,7 @@ private:
 	FILE * file;
 	char * file_buffer;
 	unsigned int file_buffer_size;
-	bool charsCanUse[MAX_CHAR_CAPACITY] = { true };
+	bool charsCanUse[MAX_CHAR_CAPACITY];
 	bool clearCharsCanUse;
 
 	bufferType buffer_type;
@@ -171,8 +171,7 @@ private:
 	string getFileStreamType(const openFileModes& file_mode) const noexcept;
 
 public:
-	FileHandler() noexcept : file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER),
-												file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true) {}
+	FileHandler() noexcept;
 	FileHandler(const string& path, const openFileModes& file_mode = DEFUALT_MODE_ENUM, const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE);
 
 	~FileHandler() { if(file != NULL) { fclose(file); file = NULL; } if(file_buffer != NULL) { delete[] file_buffer; file_buffer = NULL; this->file_buffer_size = 0; } }
@@ -187,6 +186,8 @@ public:
 	FileHandler& operator<< (string&& str);
 	FileHandler& operator>> (char* str);
 	FileHandler& operator>> (string& str);
+	bool& operator[](const unsigned int index);
+	char const * const * const operator()() const noexcept;
 
 	bool openFile(const string& f_name, const openFileModes& file_mode = DEFUALT_MODE_ENUM,
 		const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE) noexcept;

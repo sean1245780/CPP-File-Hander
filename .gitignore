@@ -1,0 +1,4 @@
+*.*
+!.gitignore
+!FileHandler.cpp
+!FileHandler.h
