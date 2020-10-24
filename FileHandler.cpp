@@ -46,6 +46,88 @@ namespace FileObj
 		return DEFUALT_MODE;
 	}
 
+	void FileHandler::getLineWithPromise(promise<retObj<string>>&& retVal, unsigned int numline, const int pos, unsigned int buff_size, const bool& auto_rewind, const bool& flush_file) noexcept
+	{
+		if (this->file != NULL)
+		{
+			if (this->file_access == openFileModes::read || this->file_access == openFileModes::read_p ||
+				this->file_access == openFileModes::write_p || this->file_access == openFileModes::append_p ||
+				this->file_access == openFileModes::read_b || this->file_access == openFileModes::read_bp ||
+				this->file_access == openFileModes::write_bp || this->file_access == openFileModes::append_bp)
+			{
+				this->last_move = READ_OP;
+
+				if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
+
+				if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
+
+				file_mutex.lock();
+				if (pos >= 0)
+				{
+					this->moveCursorInFile(filePosSet::start_file, pos);
+				}
+				else
+				{
+					this->moveCursorInFile(filePosSet::start_file);
+				}
+
+				if (feof(this->file)) { retVal.set_value({ "", ra_succss }); this->rewindFileOneStep(); file_mutex.unlock(); return; }
+
+				char tmp = 0;
+				char* data = new char[buff_size + 1]();
+				unsigned int ccount = 0, buffcount = 1;
+
+				while (!feof(this->file))
+				{
+					tmp = fgetc(this->file);
+					if (tmp == EOF || tmp == '\0' || (numline <= 0 && tmp == '\n')) break;
+					if (tmp == '\n') numline--;
+					if (tmp == '\r') continue;
+					if (numline <= 0 && tmp != '\n') data[ccount++] = tmp;
+					if (ccount > buff_size * buffcount)
+					{
+						char* ndata = new char[buff_size * (++buffcount) + 1]();
+						memcpy(ndata, data, buff_size * (buffcount - 1) + 1);
+						delete data;
+						data = ndata;
+					}
+				}
+
+				this->rewindFileOneStep();
+				file_mutex.unlock();
+
+				if ((tmp == EOF || tmp == '\0') && numline > 0) { retVal.set_value({ "", ra_endoffile_fail }); return; }
+
+				if (!this->clearCharsCanUse)
+				{
+					char* ndata = new char[ccount + 1]();
+
+					for (unsigned int i = 0, j = 0; i < ccount; i++)
+					{
+						const char ch = data[i];
+						if (this->charsCanUse[(int)ch])
+						{
+							ndata[j] = ch;
+							j++;
+						}
+					}
+
+					delete data;
+					data = ndata;
+				}
+
+				string str = data;
+				delete data;
+				data = nullptr;
+
+				retVal.set_value({ str, ra_succss });
+				return;
+			}
+		}
+
+		retVal.set_value({ "", ra_fileisclosed_fail });
+	}
+
 	/*
 		The function fixes the string path by replacing back slash to forward slash.
 		@ It is a static function.
@@ -75,7 +157,7 @@ namespace FileObj
 	/*
 		The function constructs a FileHandler object.
 	*/
-	FileHandler::FileHandler() noexcept : file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER),
+	FileHandler::FileHandler() noexcept : file(NULL), file_buffer(NULL), thread_safe(false), file_buffer_size(0), buffer_type(DEFUALT_BUFFER),
 		file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true)
 	{
 		for (int i = 0; i < MAX_CHAR_CAPACITY; i++)
@@ -87,10 +169,10 @@ namespace FileObj
 	/*
 		The function constructs a FileHandler object by trying to open a file.
 	*/
-	FileHandler::FileHandler(const string& path, const openFileModes& file_mode, const bufferType& buff_type, size_t buff_size)
-		: file(NULL), file_buffer(NULL), file_buffer_size(0), buffer_type(DEFUALT_BUFFER), file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true)
+	FileHandler::FileHandler(const string& path, const openFileModes& file_mode, const bool thread_safe, const bufferType& buff_type, size_t buff_size)
+		: file(NULL), file_buffer(NULL), thread_safe(thread_safe), file_buffer_size(0), buffer_type(DEFUALT_BUFFER), file_access(DEFUALT_MODE_ENUM), last_move(0), last_file_place(SEEK_SET), clearCharsCanUse(true)
 	{
-		if (!(this->openFile(path, file_mode, buffer_type, buff_size))) { throw FileHandlerException("Error - FileHandler: File couldn't be opened!"); }
+		if (!(this->openFile(path, file_mode, this->thread_safe, buffer_type, buff_size))) { throw FileHandlerException("Error - FileHandler: File couldn't be opened!"); }
 
 		for (int i = 0; i < MAX_CHAR_CAPACITY; i++)
 		{
@@ -447,10 +529,9 @@ namespace FileObj
 		@ If a file is already opened then it will try to close the stored file, but if it fails
 			it will return false and won't keep on going.
 	*/
-	bool FileHandler::openFile(const string& f_path, const openFileModes& file_mode, const bufferType& buff_type, size_t buff_size) noexcept
+	bool FileHandler::openFile(const string& f_path, const openFileModes& file_mode, const bool thread_safe, const bufferType& buff_type, size_t buff_size) noexcept
 	{
 		string open_mode = getFileStreamType(file_mode);
-		this->file_access = file_mode;
 
 		string fnew_path = f_path;
 		fixPath(fnew_path);
@@ -462,6 +543,9 @@ namespace FileObj
 
 		if ((this->file = fopen(fnew_path.c_str(), open_mode.c_str())) != NULL)
 		{
+			this->file_access = file_mode;
+			this->thread_safe = thread_safe;
+
 			if (buff_size > MAX_BUFFER_SIZE)
 			{
 				buff_size = MAX_BUFFER_SIZE;
@@ -687,8 +771,6 @@ namespace FileObj
 
 				if (flush_file && this->buffer_type != bufferType::non_buffer) { fflush(this->file); }
 
-				if (feof(this->file)) { return { "", ra_succss }; }
-
 				if (buff_size < MIN_BUFFER_GETLINE_SIZE || buff_size > MAX_BUFFER_GETLINE_SIZE) { buff_size = DFLT_BUFF_GLINE_SIZE; }
 
 				if (pos >= 0)
@@ -699,6 +781,8 @@ namespace FileObj
 				{
 					this->moveCursorInFile(filePosSet::start_file);
 				}
+
+				if (feof(this->file)) { return { "", ra_succss }; }
 
 				char tmp = 0;
 				char* data = new char[buff_size + 1]();
@@ -754,9 +838,56 @@ namespace FileObj
 	}
 
 	/*
+		The function gets  out of a file.
+		@ This file returns error if during the getting line, the file met \0 of EOF operators and the wanted line wasn't reached yet.
+	*/
+	void FileHandler::getLineMultiThreaded(retObj<map<pair<unsigned int, int>, retObj<string>>>& retObject, const vector<pair<unsigned int, int>>& lines_pos, unsigned int buff_size, const bool& auto_rewind, const bool& flush_file)
+	{
+		if (this->file != NULL)
+		{
+			if (!this->thread_safe) { retObject = { {}, ra_notthreadsafe_fail }; return; }
+			if (lines_pos.size() <= 0) { retObject = { {}, ra_succss }; return; }
+			
+			future<retObj<string>>* ftr = new future<retObj<string>>[lines_pos.size()];
+			thread** thds = new thread*[lines_pos.size()];
+
+			for (int i = 0; i < lines_pos.size(); i++)
+			{
+				promise<retObj<string>> p;
+				ftr[i] = p.get_future();
+				thds[i] = new thread(&FileHandler::getLineWithPromise, this, std::move(p), lines_pos[i].first, lines_pos[i].second, buff_size, std::cref(auto_rewind), std::cref(flush_file));
+			}
+
+			for (int i = 0; i < lines_pos.size(); i++)
+			{
+				retObject.obj.insert(pair<pair<unsigned int, int>, retObj<string>>(pair<unsigned int, int>(lines_pos[i].first, lines_pos[i].second), ftr[i].get()));
+			}
+
+			for (int i = 0; i < lines_pos.size(); i++)
+			{
+				thds[i]->join();
+				delete thds[i];
+				thds[i] = nullptr;
+			}
+
+			delete[] ftr;
+			delete[] thds;
+
+			ftr = nullptr;
+			thds = nullptr;
+
+			retObject.statusObj = ra_succss;
+
+			return;
+		}
+
+		retObject = { {},  ra_fileisclosed_fail };
+	}
+
+	/*
 		The function is closing a file and the buffer if opened.
 	*/
-	bool FileHandler::closeFile() noexcept { if (this->file_buffer != NULL) { delete[] this->file_buffer; this->file_buffer = NULL; this->file_buffer_size = 0; } file_path = "";  file_name = ""; extension = ""; if (this->file != NULL) { fclose(this->file); this->file = NULL; return true; } return false; }
+	bool FileHandler::closeFile() noexcept { if (this->file_buffer != NULL) { delete[] this->file_buffer; this->file_buffer = NULL; this->file_buffer_size = 0; } file_path = "";  file_name = ""; extension = ""; thread_safe = false; if (this->file != NULL) { fclose(this->file); this->file = NULL; return true; } return false; }
 
 	/*
 		The function deletes the function from the computer.
@@ -977,6 +1108,11 @@ namespace FileObj
 		The function checks if the file is opened.
 	*/
 	bool FileHandler::isFileOpened() const noexcept { return file != NULL; }
+
+	bool FileHandler::isThreadSafe() const noexcept
+	{
+		return this->thread_safe;
+	}
 
 	/*
 		The function checks if the file exists.

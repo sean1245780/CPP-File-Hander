@@ -6,12 +6,22 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <map>
 #include <exception>
+#include <thread>
+#include <future>
+#include <mutex>
 
 using std::string;
 using std::ostream;
 using std::pair;
 using std::vector;
+using std::map;
+using std::thread;
+using std::mutex;
+using std::lock_guard;
+using std::promise;
+using std::future;
 
 #define DEFUALT_MODE				"rb"
 #define DEFUALT_MODE_ENUM			openFileModes::read_b
@@ -145,7 +155,8 @@ namespace FileObj
 		ra_readlinefile_fail = 0b1000000,		// Error - The file failed to read a line from the file!
 		ra_endoffile_fail = 0b10000000,		// Error - The file reached EOF!
 		ra_updatetimefile_fail = 0b100000000,	// Error - Can't get the update time of the file!
-		ra_outofrange_fail = 0b1000000000	// Error - The wanted/given data is out of range!
+		ra_outofrange_fail = 0b1000000000,	// Error - The wanted/given data is out of range!
+		ra_notthreadsafe_fail = 0b10000000000	// Error - The wanted/given data is out of range!
 	};
 
 	typedef struct file_data // Data for thr file
@@ -183,16 +194,19 @@ namespace FileObj
 		bool charsCanUse[MAX_CHAR_CAPACITY];
 		bool clearCharsCanUse;
 
+		bool thread_safe;
+		mutex file_mutex;
 		bufferType buffer_type;
 		openFileModes file_access;
 		unsigned char last_move;
 		long last_file_place;
 
 		string getFileStreamType(const openFileModes& file_mode) const noexcept;
+		void getLineWithPromise(promise<retObj<string>>&& retVal, unsigned int numline = 0, const int pos = NON_WORK, unsigned int buff_size = DFLT_BUFF_GLINE_SIZE, const bool& auto_rewind = true, const bool& flush_file = false) noexcept;
 
 	public:
 		FileHandler() noexcept;
-		FileHandler(const string& path, const openFileModes& file_mode = DEFUALT_MODE_ENUM, const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE);
+		FileHandler(const string& path, const openFileModes& file_mode = DEFUALT_MODE_ENUM, const bool thread_safe = false, const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE);
 
 		~FileHandler() { if (file != NULL) { fclose(file); file = NULL; } if (file_buffer != NULL) { delete[] file_buffer; file_buffer = NULL; this->file_buffer_size = 0; } }
 
@@ -209,11 +223,12 @@ namespace FileObj
 		bool& operator[](const unsigned int index);
 		char const* const* const operator()() const noexcept;
 
-		bool openFile(const string& f_name, const openFileModes& file_mode = DEFUALT_MODE_ENUM,
+		bool openFile(const string& f_name, const openFileModes& file_mode = DEFUALT_MODE_ENUM, const bool thread_safe = false,
 			const bufferType& buff_type = DEFUALT_BUFFER, size_t buff_size = DEFUALT_BUFFER_SIZE) noexcept;
 		bool writeToFile(const string& data, const int& pos = NON_WORK, const bool& auto_rewind = false, const bool& flush_file = false) noexcept;
 		retObj<string> readFromFile(const size_t& count = 1, const int& pos = NON_WORK, const bool& auto_rewind = true, const bool& flush_file = false) noexcept; // Returns 
 		retObj<string> getLine(unsigned int numline = 0, const int& pos = NON_WORK, unsigned int buff_size = DFLT_BUFF_GLINE_SIZE, const bool& auto_rewind = true, const bool& flush_file = false) noexcept;
+		void getLineMultiThreaded(retObj<map<pair<unsigned int, int>, retObj<string>>>& retObject, const vector<pair<unsigned int, int>>& lines_pos = vector<pair<unsigned int, int>>(), unsigned int buff_size = DFLT_BUFF_GLINE_SIZE, const bool& auto_rewind = true, const bool& flush_file = false);
 		bool closeFile() noexcept;
 		bool removeFile() noexcept;
 		bool flushFile() noexcept; // Safe flush
@@ -227,6 +242,7 @@ namespace FileObj
 		bool rewindFileOneStep() noexcept;
 		bool isEndOfFile() const noexcept;
 		bool isFileOpened() const noexcept;
+		bool isThreadSafe() const noexcept;
 
 		static bool fileExists(const std::string& f_path) noexcept;
 		static void fixPath(string& path) noexcept;
